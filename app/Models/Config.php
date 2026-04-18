@@ -2,26 +2,28 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Config extends Model
 {
-    use HasFactory;
+    protected $fillable = ['key', 'value'];
 
-    protected $fillable = [
-        'code',
-        'value',
-    ];
-
-    public static function getValueByCode(\App\Enums\Config $code): string
+    /**
+     * 🔥 ambil config
+     */
+    public static function get($key, $default = null)
     {
-        $config = self::code($code)->first();
-        return $config->value;
+        return static::where('key', $key)->value('value') ?? $default;
     }
 
-    public function scopeCode($query, \App\Enums\Config $code)
+    /**
+     * 🔥 set config
+     */
+    public static function set($key, $value)
     {
-        return $query->where('code', $code->value());
+        return static::updateOrCreate(
+            ['key' => $key],
+            ['value' => $value]
+        );
     }
 }

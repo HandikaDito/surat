@@ -2,16 +2,19 @@
 
 namespace App\Enums;
 
-enum LetterType
+enum LetterType: string
 {
-    case INCOMING;
-    case OUTGOING;
+    case INCOMING = 'incoming';
+    case OUTGOING = 'outgoing';
 
-    public function type(): string
+    /**
+     * 🔥 Label untuk ditampilkan di UI
+     */
+    public function label(): string
     {
         return match ($this) {
-            self::INCOMING => 'incoming',
-            self::OUTGOING => 'outgoing',
+            self::INCOMING => 'Surat Masuk',
+            self::OUTGOING => 'Surat Keluar',
         };
     }
 }

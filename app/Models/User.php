@@ -2,99 +2,167 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Enums\Role;
-use App\Enums\Config as ConfigEnum;
-use Illuminate\Database\Eloquent\Casts\Attribute;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
+    protected $table = 'users';
+
     protected $fillable = [
         'name',
         'email',
         'password',
-        'phone',
-        'role',
+        'role_level',
+        'jabatan',
+        'parent_id',
+        'unit',
+        'no_hp',
         'is_active',
-        'profile_picture',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'role_level' => 'integer',
         'is_active' => 'boolean',
     ];
 
-    /**
-     * Get the user's profile picture
-     *
-     * @return Attribute
-     */
-    public function profilePicture(): Attribute
-    {
-        return Attribute::make(
-            get: function ($value) {
-                if ($value) return $value;
+    protected $appends = [
+        'role_name',
+    ];
 
-                $url = 'https://ui-avatars.com/api/?background=6D67E4&color=fff&name=';
-                return $url . urlencode($this->name);
-            },
-        );
+    // ================= RBAC =================
+
+    public function isAdmin()
+    {
+        return $this->role_level === 0;
     }
 
-    public function scopeActive($query)
+    public function isDirut()
     {
-        return $query->where('is_active', true);
+        return $this->role_level === 1;
     }
 
-    public function scopeRole($query, Role $role)
+    public function isDirektur()
     {
-        return $query->where('role', $role->status());
+        return $this->role_level === 2;
     }
 
-    public function scopeSearch($query, $search)
+    public function isKabag()
     {
-        return $query->when($search, function($query, $find) {
-            return $query
-                ->where('name', 'LIKE', $find . '%')
-                ->orWhere('phone', $find)
-                ->orWhere('email', $find);
-        });
+        return $this->role_level === 3;
     }
 
-    public function scopeRender($query, $search)
+    public function isKasubbag()
     {
-        return $query
-            ->search($search)
-            ->role(Role::STAFF)
-            ->paginate(Config::getValueByCode(ConfigEnum::PAGE_SIZE))
-            ->appends([
-                'search' => $search,
-            ]);
+        return $this->role_level === 4;
+    }
+
+    public function isStaff()
+    {
+        return $this->role_level === 5;
+    }
+
+    public function hasRoleLevel($level)
+    {
+        return $this->role_level === $level;
+    }
+
+    // ================= RULE DISPOSISI =================
+
+    public function canSendTo(self $target)
+    {
+        // 🚫 Admin tidak boleh disposisi
+        if ($this->isAdmin()) {
+            return false;
+        }
+
+        // 🚫 Staff tidak boleh kirim ke atas
+        if ($this->isStaff() && $target->role_level < 5) {
+            return false;
+        }
+
+        // ✅ hanya boleh ke level sama atau lebih bawah
+        return $target->role_level >= $this->role_level;
+    }
+
+    // ================= ACCESSOR =================
+
+    public function getRoleNameAttribute()
+    {
+        return match ($this->role_level) {
+            0 => 'Admin Sekretariat',
+            1 => 'Direktur Utama',
+            2 => 'Direktur',
+            3 => 'Kabag / Kacab',
+            4 => 'Kasubbag',
+            5 => 'Staff',
+            default => 'Unknown',
+        };
+    }
+
+    // ================= RELASI =================
+
+    // 📥 surat masuk
+    public function suratMasuk()
+    {
+        return $this->hasMany(SuratMasuk::class, 'created_by');
+    }
+
+    // 📤 surat keluar (opsional)
+    public function suratKeluar()
+    {
+        return $this->hasMany(SuratKeluar::class, 'created_by');
+    }
+
+    // 🔽 target disposisi (pivot)
+    public function dispositionTargets()
+    {
+        return $this->hasMany(DispositionTarget::class, 'user_id');
+    }
+
+    // 🔽 disposisi yang diterima (multi-user)
+    public function dispositionsReceived()
+    {
+        return $this->belongsToMany(
+            Disposition::class,
+            'disposition_targets',
+            'user_id',
+            'disposition_id'
+        )->withPivot('status')->withTimestamps();
+    }
+
+    // 🔼 disposisi yang dikirim
+    public function dispositionsSent()
+    {
+        return $this->hasMany(Disposition::class, 'from_user_id');
+    }
+
+    // 📎 laporan user
+    public function dispositionReports()
+    {
+        return $this->hasMany(DispositionReport::class, 'user_id');
+    }
+
+    // ================= HIERARCHY =================
+
+    // 🔼 atasan
+    public function parent()
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    // 🔽 bawahan
+    public function children()
+    {
+        return $this->hasMany(self::class, 'parent_id');
     }
 }

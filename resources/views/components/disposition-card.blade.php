@@ -1,39 +1,109 @@
-<div class="card mb-4">
-    <div class="card-header pb-0">
-        <div class="d-flex justify-content-between flex-column flex-sm-row">
-            <div class="card-title">
-                <h5 class="text-nowrap mb-0 fw-bold">{{ $disposition->status?->status }}</h5>
-                <small class="text-black">{{ $disposition->to }}</small>
-            </div>
-            <div class="card-title d-flex flex-row">
-                <div class="d-inline-block mx-2 text-end text-black">
-                    <small class="d-block text-secondary">{{ __('model.disposition.due_date') }}</small>
-                    {{ $disposition->formatted_due_date }}
-                </div>
-                <div class="dropdown d-inline-block">
-                    <button class="btn p-0" type="button" id="dropdown-disposition-{{ $disposition->id }}" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                        <i class="bx bx-dots-vertical-rounded"></i>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-disposition-{{ $disposition->id }}">
-                        <a class="dropdown-item"
-                           href="{{ route('transaction.disposition.edit', [$letter, $disposition]) }}">{{ __('menu.general.edit') }}</a>
-                        <form action="{{ route('transaction.disposition.destroy', [$letter, $disposition]) }}" class="d-inline"
-                              method="post">
-                            @csrf
-                            @method('DELETE')
-                            <span
-                                class="dropdown-item cursor-pointer btn-delete">{{ __('menu.general.delete') }}</span>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="card mb-3">
+
     <div class="card-body">
+
+        {{-- HEADER --}}
+        <div class="d-flex justify-content-between">
+
+            <div>
+                <h6 class="mb-1">
+                    {{ $disposition->surat->perihal ?? '-' }}
+                </h6>
+
+                <small class="text-muted">
+                    {{ $disposition->fromUser->name ?? 'System' }}
+                    →
+                    {{ $disposition->toUser->name ?? '-' }}
+                </small>
+            </div>
+
+            {{-- STATUS --}}
+            <span class="badge bg-label-{{ $disposition->status_color }}">
+                {{ $disposition->status_label }}
+            </span>
+
+        </div>
+
         <hr>
-        <p>{{ $disposition->content }}</p>
-        <small class="text-secondary">{{ $disposition->note }}</small>
-        {{ $slot }}
+
+        {{-- ISI --}}
+        <p class="mb-2">
+            {{ $disposition->catatan ?? '-' }}
+        </p>
+
+        {{-- DEADLINE --}}
+        @if($disposition->deadline)
+            <small class="text-danger">
+                Deadline: {{ $disposition->deadline }}
+            </small>
+        @endif
+
+        {{-- ACTION --}}
+        @if(auth()->id() == $disposition->to_user_id)
+
+            {{-- 🔽 FORWARD (LEVEL < 5) --}}
+            @if(auth()->user()->role_level < 5)
+
+                <form action="{{ route('disposition.forward', $disposition->id) }}" method="POST" class="mt-2">
+                    @csrf
+
+                    <select name="to_user_id" class="form-control mb-2" required>
+                        @foreach($users as $u)
+                            @if($u->role_level == auth()->user()->role_level + 1)
+                                <option value="{{ $u->id }}">{{ $u->name }}</option>
+                            @endif
+                        @endforeach
+                    </select>
+
+                    <input type="text"
+                           name="catatan"
+                           class="form-control mb-2"
+                           placeholder="Instruksi"
+                           required>
+
+                    <button class="btn btn-warning btn-sm w-100">
+                        Teruskan
+                    </button>
+
+                </form>
+
+            @endif
+
+
+            {{-- 🔼 DONE (LEVEL 5) --}}
+            @if(auth()->user()->role_level == 5)
+
+                <form action="{{ route('disposition.done', $disposition->id) }}"
+                      method="POST"
+                      enctype="multipart/form-data"
+                      class="mt-2">
+                    @csrf
+
+                    <textarea name="catatan"
+                              class="form-control mb-2"
+                              placeholder="Laporan hasil"
+                              required></textarea>
+
+                    <input type="file"
+                           name="file_laporan"
+                           class="form-control mb-2">
+
+                    <button class="btn btn-success btn-sm w-100">
+                        Selesai
+                    </button>
+
+                </form>
+
+            @endif
+
+        @endif
+
+        {{-- TRACKING --}}
+        <a href="{{ route('disposition.tracking', $disposition->id) }}"
+           class="btn btn-info btn-sm w-100 mt-2">
+            Lihat Tracking
+        </a>
+
     </div>
+
 </div>

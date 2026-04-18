@@ -2,19 +2,31 @@
 
 namespace Database\Seeders;
 
-use App\Models\Disposition;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\Disposition;
+use App\Models\DispositionTarget;
+use App\Models\DispositionReport;
 
 class DispositionSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
     public function run(): void
     {
-        Disposition::factory()->count(15)->create();
+        Disposition::factory()
+            ->count(5)
+            ->create()
+            ->each(function ($d) {
+
+                DispositionTarget::factory()
+                    ->count(rand(1,3))
+                    ->create([
+                        'disposition_id' => $d->id
+                    ]);
+
+                DispositionReport::factory()
+                    ->count(rand(0,2))
+                    ->create([
+                        'disposition_id' => $d->id
+                    ]);
+            });
     }
 }

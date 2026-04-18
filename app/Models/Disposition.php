@@ -2,90 +2,94 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Disposition extends Model
 {
     use HasFactory;
 
+    protected $table = 'dispositions';
+
     protected $fillable = [
-        'to',
-        'due_date',
-        'content',
-        'note',
-        'letter_status',
-        'letter_id',
-        'user_id'
+        'surat_id',
+        'from_user_id',
+        'catatan',
+        'deadline',
     ];
 
-    protected $appends = [
-        'formatted_due_date',
-    ];
+    // ================= RELASI =================
 
-    public function getFormattedDueDateAttribute(): string {
-        return Carbon::parse($this->due_date)->isoFormat('dddd, D MMMM YYYY');
+    public function surat()
+    {
+        return $this->belongsTo(SuratMasuk::class, 'surat_id');
     }
 
-    public function scopeToday($query)
+    public function fromUser()
     {
-        return $query->whereDate('created_at', now());
+        return $this->belongsTo(User::class, 'from_user_id');
     }
 
-    public function scopeYesterday($query)
+    // 🔥 MULTI TARGET (inti sistem)
+    public function targets()
     {
-        return $query->whereDate('created_at', now()->addDays(-1));
+        return $this->hasMany(DispositionTarget::class, 'disposition_id');
     }
 
-    public function scopeSearch($query, $search)
+    // 🔥 shortcut ke user
+    public function targetUsers()
     {
-        return $query->when($search, function($query, $find) {
-            return $query
-                ->orWhere('content', 'LIKE', '%' . $find . '%')
-                ->orWhere('to', 'LIKE', $find . '%');
-        });
+        return $this->belongsToMany(
+            User::class,
+            'disposition_targets',
+            'disposition_id',
+            'user_id'
+        )->withPivot('status')->withTimestamps();
     }
 
-    public function scopeRender($query, Letter $letter, $search)
+    // 📎 laporan
+    public function reports()
     {
-        $pageSize = Config::code(\App\Enums\Config::PAGE_SIZE)->first();
-        return $query
-            ->with(['user', 'status', 'letter'])
-            ->search($search)
-            ->when($letter, function ($query, $letter) {
-                return $query
-                    ->where('letter_id', $letter->id);
-            })
-            ->latest('created_at')
-            ->paginate($pageSize->value)
-            ->appends([
-                'search' => $search,
-            ]);
+        return $this->hasMany(DispositionReport::class, 'disposition_id');
     }
 
-    /**
-     * @return BelongsTo
-     */
-    public function user(): BelongsTo
+    // ================= HELPER =================
+
+    // 🔥 semua status target
+    public function getStatusesAttribute()
     {
-        return $this->belongsTo(User::class);
+        return $this->targets->pluck('status');
     }
 
-    /**
-     * @return BelongsTo
-     */
-    public function status(): BelongsTo
+    // 🔥 cek semua selesai
+    public function isDone()
     {
-        return $this->belongsTo(LetterStatus::class, 'letter_status', 'id');
+        return $this->targets->every(fn ($t) => $t->status === 'done');
     }
 
-    /**
-     * @return BelongsTo
-     */
-    public function letter(): BelongsTo
+    // 🔥 ada yang belum dibaca
+    public function hasUnread()
     {
-        return $this->belongsTo(Letter::class, 'letter_id', 'id');
+        return $this->targets->contains(fn ($t) => $t->status === 'unread');
+    }
+
+    // 🔥 sedang berjalan
+    public function isOnProgress()
+    {
+        return $this->targets->contains(fn ($t) => 
+            in_array($t->status, ['unread','on_progress'])
+        );
+    }
+
+    // ================= SCOPE =================
+
+    public function scopeBySurat($query, $suratId)
+    {
+        return $query->where('surat_id', $suratId);
+    }
+
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('created_at');
     }
 }

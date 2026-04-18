@@ -1,5 +1,20 @@
 <div class="mb-3">
-    <label for="{{ $name }}" class="form-label">{{ $label }}</label>
-    <textarea class="form-control @error($name) is-invalid @enderror" id="{{ $name }}" name="{{ $name }}" rows="3">{{ old($name, $value) }}</textarea>
-    <span class="error invalid-feedback">{{ $errors->first($name) }}</span>
+
+    <label for="{{ $name }}" class="form-label">
+        {{ $label }}
+    </label>
+
+    <textarea
+        id="{{ $name }}"
+        name="{{ $name }}"
+        rows="{{ $rows ?? 3 }}"
+        class="form-control @error($name) is-invalid @enderror"
+    >{{ old($name, $value ?? '') }}</textarea>
+
+    @error($name)
+        <div class="invalid-feedback">
+            {{ $message }}
+        </div>
+    @enderror
+
 </div>

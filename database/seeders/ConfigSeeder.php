@@ -2,56 +2,69 @@
 
 namespace Database\Seeders;
 
-use App\Models\Config;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class ConfigSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     *
-     * @return void
-     */
     public function run(): void
     {
-        Config::insert([
+        DB::table('configs')->insert([
+            
+            // 🏢 IDENTITAS APLIKASI
             [
-                'code' => 'default_password',
-                'value' => 'pdamkendal',
+                'key' => 'app_name',
+                'value' => 'E-Disposisi',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
+
             [
-                'code' => 'page_size',
-                'value' => '5',
+                'key' => 'company_name',
+                'value' => 'PDAM Tirto Panguripan',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
+
+            // 📧 EMAIL SYSTEM
             [
-                'code' => 'app_name',
-                'value' => 'Aplikasi Surat Menyurat',
-            ],
-            [
-                'code' => 'institution_name',
-                'value' => 'PDAM Tirto Panguripan Kendal',
-            ],
-            [
-                'code' => 'institution_address',
-                'value' => 'Jl. Pemuda No. 62 Kendal',
-            ],
-            [
-                'code' => 'institution_phone',
-                'value' => '08122578484',
-            ],
-            [
-                'code' => 'institution_email',
+                'key' => 'system_email',
                 'value' => 'pdepamkdl@yahoo.co.id',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
+
+            // ⏱️ DEFAULT DEADLINE (hari)
             [
-                'code' => 'language',
-                'value' => 'id',
+                'key' => 'default_deadline_days',
+                'value' => '3',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
+
+            // 🔔 NOTIFIKASI
             [
-                'code' => 'pic',
-                'value' => 'Handika Dito Aulia Baihaqi',
+                'key' => 'enable_email_notification',
+                'value' => '1',
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
+
+            [
+                'key' => 'enable_whatsapp_notification',
+                'value' => '0',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+
+            // 🎨 TEMA
+            [
+                'key' => 'theme_color',
+                'value' => 'blue',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+
         ]);
     }
 }
