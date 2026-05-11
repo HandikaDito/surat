@@ -17,15 +17,34 @@ class DispositionTarget extends Model
         'status',
     ];
 
-    protected $casts = [
-        'status' => 'string',
-    ];
-
-    // 🔥 AUTO APPEND (biar gampang di blade)
+    // 🔥 AUTO APPEND
     protected $appends = [
         'status_label',
         'status_color',
     ];
+
+    // ================= CONSTANT =================
+
+    const STATUS_UNREAD   = 'unread';
+    const STATUS_PROGRESS = 'on_progress';
+    const STATUS_DONE     = 'done';
+
+    const STATUSES = [
+        self::STATUS_UNREAD,
+        self::STATUS_PROGRESS,
+        self::STATUS_DONE,
+    ];
+
+    // ================= BOOT (VALIDASI MODEL 🔥) =================
+
+    protected static function booted()
+    {
+        static::saving(function ($model) {
+            if (!in_array($model->status, self::STATUSES)) {
+                throw new \InvalidArgumentException("Status tidak valid: {$model->status}");
+            }
+        });
+    }
 
     // ================= RELASI =================
 
@@ -39,29 +58,25 @@ class DispositionTarget extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // ================= STATUS =================
-
-    const STATUS_UNREAD = 'unread';
-    const STATUS_PROGRESS = 'on_progress';
-    const STATUS_DONE = 'done';
+    // ================= ACCESSOR =================
 
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
-            self::STATUS_UNREAD => 'Belum Dibaca',
+            self::STATUS_UNREAD   => 'Belum Dibaca',
             self::STATUS_PROGRESS => 'Sedang Dikerjakan',
-            self::STATUS_DONE => 'Selesai',
-            default => 'Tidak Diketahui',
+            self::STATUS_DONE     => 'Selesai',
+            default               => 'Tidak Diketahui',
         };
     }
 
     public function getStatusColorAttribute()
     {
         return match($this->status) {
-            self::STATUS_UNREAD => 'secondary',
+            self::STATUS_UNREAD   => 'secondary',
             self::STATUS_PROGRESS => 'warning',
-            self::STATUS_DONE => 'success',
-            default => 'primary',
+            self::STATUS_DONE     => 'success',
+            default               => 'primary',
         };
     }
 
@@ -91,6 +106,14 @@ class DispositionTarget extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('status', '!=', self::STATUS_DONE);
+        return $query->whereIn('status', [
+            self::STATUS_UNREAD,
+            self::STATUS_PROGRESS
+        ]);
+    }
+
+    public function scopeDone($query)
+    {
+        return $query->where('status', self::STATUS_DONE);
     }
 }

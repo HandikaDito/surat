@@ -4,7 +4,8 @@
 
 <div class="row">
 
-    <div class="col-md-6 mx-auto">
+    {{-- 🔥 FULL WIDTH DI HP --}}
+    <div class="col-12 col-md-6 mx-auto">
 
         <div class="card">
 
@@ -85,9 +86,9 @@
                                class="form-control">
                     </div>
 
-                    {{-- BUTTON --}}
-                    <div class="d-flex justify-content-end">
-                        <button class="btn btn-primary">
+                    {{-- 🔥 BUTTON RESPONSIVE --}}
+                    <div class="d-grid d-md-flex justify-content-md-end">
+                        <button class="btn btn-primary w-100 w-md-auto">
                             <i class="fa fa-save"></i> Update Profil
                         </button>
                     </div>

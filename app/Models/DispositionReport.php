@@ -19,14 +19,8 @@ class DispositionReport extends Model
         'file_type',
     ];
 
-    protected $casts = [
-        'file_type' => 'string',
-    ];
-
-    // 🔥 AUTO APPEND
     protected $appends = [
         'file_url',
-        'file_preview',
     ];
 
     // ================= RELASI =================
@@ -48,25 +42,6 @@ class DispositionReport extends Model
         return $this->file_path
             ? asset('storage/' . $this->file_path)
             : null;
-    }
-
-    // 🔥 untuk blade langsung tampil
-    public function getFilePreviewAttribute()
-    {
-        if (!$this->file_url) {
-            return null;
-        }
-
-        return match($this->file_type) {
-            'image' => '<img src="'.$this->file_url.'" width="200">',
-            'video' => '
-                <video width="250" controls>
-                    <source src="'.$this->file_url.'">
-                </video>
-            ',
-            'pdf' => '<a href="'.$this->file_url.'" target="_blank">Download PDF</a>',
-            default => null,
-        };
     }
 
     // ================= HELPER =================

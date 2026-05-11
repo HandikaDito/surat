@@ -9,24 +9,34 @@ class ForwardDispositionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return auth()->check();
     }
 
     public function rules(): array
     {
         return [
-            'to_user_id' => [
-                'required',
+            // 🔥 MULTI TARGET
+            'target_users' => 'required|array|min:1',
+
+            'target_users.*' => [
                 'exists:users,id',
                 function ($attr, $value, $fail) {
-                    $user = User::find($value);
-                    if ($user->role_level != auth()->user()->role_level + 1) {
-                        $fail('Hanya boleh kirim ke level berikutnya');
+
+                    $sender = auth()->user();
+                    $target = User::find($value);
+
+                    if (!$target) {
+                        return;
+                    }
+
+                    // 🔥 pakai rule pusat
+                    if (!$sender->canSendTo($target)) {
+                        $fail('Tidak boleh mengirim ke user tersebut');
                     }
                 }
             ],
 
-            'catatan' => 'required|string'
+            'catatan' => 'nullable|string|max:255',
         ];
     }
 }

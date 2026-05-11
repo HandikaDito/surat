@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Disposition;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
 use App\Models\Disposition;
 use App\Models\DispositionTarget;
 use App\Models\DispositionReport;
@@ -15,7 +17,6 @@ class DispositionController extends Controller
     // ================= INDEX =================
     public function index()
     {
-        /** @var \App\Models\User $user */
         $user = auth()->user();
 
         $query = Disposition::with([
@@ -24,87 +25,105 @@ class DispositionController extends Controller
             'targets.user'
         ]);
 
-        // 🔒 staff hanya lihat sampai Kabag (level >= 3)
+        // 🔒 staff hanya lihat dari Kabag ke atas
         if ($user->isStaff()) {
             $query->whereHas('fromUser', function ($q) {
                 $q->where('role_level', '>=', 3);
             });
         }
 
-        // 🔍 FILTER BULAN (pakai created_at)
+        // 🔍 filter bulan
         if (request('bulan')) {
             $query->whereMonth('created_at', request('bulan'));
         }
 
-        // 🔍 FILTER TAHUN
+        // 🔍 filter tahun
         if (request('tahun')) {
             $query->whereYear('created_at', request('tahun'));
         }
 
-        // 🔥 DEFAULT: bulan sekarang
+        // 🔥 default bulan sekarang
         if (!request('bulan') && !request('tahun')) {
             $query->whereMonth('created_at', now()->month)
                   ->whereYear('created_at', now()->year);
         }
 
-        $dispositions = $query->latest()->paginate(10);
+        $dispositions = $query->latest()->paginate(10)->withQueryString();
 
-        // 🔥 biar filter tidak hilang saat pagination
-        $dispositions->appends(request()->query());
+        // ================= FIX PENTING =================
 
-        return view('disposisi.index', compact('dispositions'));
+        // 🔥 dropdown surat
+        $surat = SuratMasuk::latest()->get();
+
+        // 🔥 dropdown user (exclude diri sendiri & hanya aktif)
+        $users = User::where('id', '!=', $user->id)
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn($u) => $user->canSendTo($u)); // 🔒 sesuai rule role
+
+        return view('disposisi.index', compact(
+            'dispositions',
+            'surat',
+            'users'
+        ));
     }
 
     // ================= STORE =================
     public function store(Request $request)
     {
-        /** @var \App\Models\User $user */
         $user = auth()->user();
 
-        // 🚫 admin tidak boleh disposisi
         if ($user->isAdmin()) {
             abort(403, 'Admin tidak boleh membuat disposisi');
         }
 
         $request->validate([
             'surat_id' => 'required|exists:surat_masuk,id',
-            'target_users' => 'required|array',
+            'target_users' => 'required|array|min:1',
             'target_users.*' => 'exists:users,id',
             'catatan' => 'nullable|string',
             'deadline' => 'nullable|date'
         ]);
 
-        $surat = SuratMasuk::findOrFail($request->surat_id);
+        DB::transaction(function () use ($request, $user) {
 
-        // buat disposisi
-        $disposition = Disposition::create([
-            'surat_id' => $surat->id,
-            'from_user_id' => $user->id,
-            'catatan' => $request->catatan,
-            'deadline' => $request->deadline,
-        ]);
+            $surat = SuratMasuk::lockForUpdate()->findOrFail($request->surat_id);
 
-        // 🔥 multi target
-        foreach ($request->target_users as $targetId) {
+            $targets = User::whereIn('id', $request->target_users)->get();
 
-            $target = User::findOrFail($targetId);
-
-            if (!$user->canSendTo($target)) {
-                return back()->with('error', 'Tidak boleh kirim ke user tersebut');
+            foreach ($targets as $target) {
+                if (!$user->canSendTo($target)) {
+                    abort(403, 'Tidak boleh kirim ke user tersebut');
+                }
             }
 
-            DispositionTarget::create([
-                'disposition_id' => $disposition->id,
-                'user_id' => $target->id,
-                'status' => 'unread'
+            $disposition = Disposition::create([
+                'surat_id' => $surat->id,
+                'from_user_id' => $user->id,
+                'catatan' => $request->catatan,
+                'deadline' => $request->deadline,
             ]);
-        }
 
-        // update status surat
-        $surat->update([
-            'status' => 'diproses',
-            'is_disposisi' => true
-        ]);
+            $rows = [];
+            $now = now();
+
+            foreach ($targets as $target) {
+                $rows[] = [
+                    'disposition_id' => $disposition->id,
+                    'user_id' => $target->id,
+                    'status' => 'unread',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            DispositionTarget::insert($rows);
+
+            $surat->update([
+                'status' => 'diproses',
+                'is_disposisi' => true
+            ]);
+        });
 
         return back()->with('success', 'Disposisi berhasil dibuat');
     }
@@ -112,47 +131,60 @@ class DispositionController extends Controller
     // ================= FORWARD =================
     public function forward(Request $request, Disposition $disposition)
     {
-        /** @var \App\Models\User $user */
         $user = auth()->user();
 
         $request->validate([
-            'target_users' => 'required|array',
+            'target_users' => 'required|array|min:1',
             'target_users.*' => 'exists:users,id',
             'catatan' => 'nullable|string',
             'deadline' => 'nullable|date'
         ]);
 
-        // 🔒 pastikan user adalah target
-        $target = DispositionTarget::where('disposition_id', $disposition->id)
-            ->where('user_id', $user->id)
-            ->first();
+        DB::transaction(function () use ($request, $user, $disposition) {
 
-        if (!$target) {
-            abort(403);
-        }
+            $currentTarget = DispositionTarget::where('disposition_id', $disposition->id)
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->first();
 
-        // buat disposisi baru
-        $new = Disposition::create([
-            'surat_id' => $disposition->surat_id,
-            'from_user_id' => $user->id,
-            'catatan' => $request->catatan,
-            'deadline' => $request->deadline,
-        ]);
-
-        foreach ($request->target_users as $targetId) {
-
-            $targetUser = User::findOrFail($targetId);
-
-            if (!$user->canSendTo($targetUser)) {
-                return back()->with('error', 'Tidak boleh kirim ke user tersebut');
+            if (!$currentTarget) {
+                abort(403);
             }
 
-            DispositionTarget::create([
-                'disposition_id' => $new->id,
-                'user_id' => $targetUser->id,
-                'status' => 'unread'
+            $targets = User::whereIn('id', $request->target_users)->get();
+
+            foreach ($targets as $target) {
+                if (!$user->canSendTo($target)) {
+                    abort(403);
+                }
+            }
+
+            $new = Disposition::create([
+                'surat_id' => $disposition->surat_id,
+                'from_user_id' => $user->id,
+                'catatan' => $request->catatan,
+                'deadline' => $request->deadline,
             ]);
-        }
+
+            $rows = [];
+            $now = now();
+
+            foreach ($targets as $target) {
+                $rows[] = [
+                    'disposition_id' => $new->id,
+                    'user_id' => $target->id,
+                    'status' => 'unread',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            DispositionTarget::insert($rows);
+
+            $currentTarget->update([
+                'status' => 'done'
+            ]);
+        });
 
         return back()->with('success', 'Disposisi diteruskan');
     }
@@ -160,35 +192,38 @@ class DispositionController extends Controller
     // ================= DONE =================
     public function done(Request $request, Disposition $disposition)
     {
-        /** @var \App\Models\User $user */
         $user = auth()->user();
 
         $request->validate([
             'keterangan' => 'nullable|string',
-            'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,mp4,mov|max:10240'
+            'file' => 'required|file|mimes:pdf,jpg,jpeg,png,mp4,mov|max:10240'
         ]);
 
-        // 🔒 pastikan user adalah target
-        $target = DispositionTarget::where('disposition_id', $disposition->id)
-            ->where('user_id', $user->id)
-            ->first();
+        DB::transaction(function () use ($request, $user, $disposition) {
 
-        if (!$target) {
-            abort(403);
-        }
+            $target = DispositionTarget::where('disposition_id', $disposition->id)
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->first();
 
-        // update status target
-        $target->update(['status' => 'done']);
+            if (!$target) {
+                abort(403);
+            }
 
-        // upload file (opsional)
-        if ($request->file('file')) {
+            if ($target->status === 'done') {
+                abort(400, 'Sudah diselesaikan');
+            }
 
             $file = $request->file('file');
             $path = $file->store('reports', 'public');
 
-            $type = str_contains($file->getMimeType(), 'image')
-                ? 'image'
-                : (str_contains($file->getMimeType(), 'video') ? 'video' : 'pdf');
+            $mime = $file->getMimeType();
+
+            $type = match (true) {
+                str_contains($mime, 'image') => 'image',
+                str_contains($mime, 'video') => 'video',
+                default => 'pdf',
+            };
 
             DispositionReport::create([
                 'disposition_id' => $disposition->id,
@@ -197,22 +232,22 @@ class DispositionController extends Controller
                 'file_path' => $path,
                 'file_type' => $type,
             ]);
-        }
 
-        // 🔥 cek semua target selesai
-        if ($disposition->targets()->where('status', '!=', 'done')->count() === 0) {
-            $disposition->surat->update([
-                'status' => 'selesai'
-            ]);
-        }
+            $target->update(['status' => 'done']);
 
-        return back()->with('success', 'Tugas selesai');
+            if (!$disposition->targets()->where('status', '!=', 'done')->exists()) {
+                $disposition->surat->update([
+                    'status' => 'selesai'
+                ]);
+            }
+        });
+
+        return back()->with('success', 'Laporan berhasil dikirim');
     }
 
     // ================= DESTROY =================
     public function destroy(Disposition $disposition)
     {
-        /** @var \App\Models\User $user */
         $user = auth()->user();
 
         if (

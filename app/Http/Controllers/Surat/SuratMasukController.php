@@ -15,17 +15,15 @@ class SuratMasukController extends Controller
     {
         $query = SuratMasuk::with('creator');
 
-        // 🔍 FILTER BULAN
         if (request('bulan')) {
             $query->whereMonth('tanggal_masuk', request('bulan'));
         }
 
-        // 🔍 FILTER TAHUN
         if (request('tahun')) {
             $query->whereYear('tanggal_masuk', request('tahun'));
         }
 
-        // 🔥 DEFAULT: bulan sekarang
+        // default bulan sekarang
         if (!request('bulan') && !request('tahun')) {
             $query->whereMonth('tanggal_masuk', now()->month)
                   ->whereYear('tanggal_masuk', now()->year);
@@ -52,8 +50,10 @@ class SuratMasukController extends Controller
 
         $data['created_by'] = Auth::id();
 
-        if ($request->hasFile('file_pdf')) {
-            $data['file_pdf'] = $request->file('file_pdf')->store('surat', 'public');
+        if ($request->hasFile('file')) {
+            $data['file_pdf'] = $request
+                ->file('file')
+                ->store('surat', 'public');
         }
 
         SuratMasuk::create($data);
@@ -69,7 +69,7 @@ class SuratMasukController extends Controller
         $suratMasuk->load([
             'creator',
             'dispositions.fromUser',
-            'dispositions.targets.user' // 🔥 FIX
+            'dispositions.targets.user'
         ]);
 
         return view('surat.masuk.show', [
@@ -80,7 +80,10 @@ class SuratMasukController extends Controller
     // ================= DESTROY =================
     public function destroy(SuratMasuk $suratMasuk)
     {
-        if ($suratMasuk->file_pdf && Storage::disk('public')->exists($suratMasuk->file_pdf)) {
+        if (
+            $suratMasuk->file_pdf &&
+            Storage::disk('public')->exists($suratMasuk->file_pdf)
+        ) {
             Storage::disk('public')->delete($suratMasuk->file_pdf);
         }
 

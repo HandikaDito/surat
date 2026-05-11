@@ -9,8 +9,12 @@
 
         <div class="card">
 
-            <div class="card-header">
-                <h5 class="mb-0">Tambah Surat Keluar</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Edit Surat Keluar</h5>
+
+                <a href="{{ route('surat-keluar.index') }}" class="btn btn-secondary btn-sm">
+                    Kembali
+                </a>
             </div>
 
             <div class="card-body">
@@ -27,10 +31,11 @@
                 @endif
 
                 <form method="POST"
-                      action="{{ route('surat-keluar.store') }}"
+                      action="{{ route('surat-keluar.update', $suratKeluar->id) }}"
                       enctype="multipart/form-data">
 
                     @csrf
+                    @method('PUT')
 
                     <div class="row g-2">
 
@@ -39,7 +44,7 @@
                             <label class="form-label">Nomor Surat</label>
                             <input type="text" name="nomor_surat"
                                    class="form-control @error('nomor_surat') is-invalid @enderror"
-                                   value="{{ old('nomor_surat') }}">
+                                   value="{{ old('nomor_surat', $suratKeluar->nomor_surat) }}">
                         </div>
 
                         {{-- TANGGAL --}}
@@ -47,7 +52,7 @@
                             <label class="form-label">Tanggal Surat</label>
                             <input type="date" name="tanggal_surat"
                                    class="form-control @error('tanggal_surat') is-invalid @enderror"
-                                   value="{{ old('tanggal_surat') }}">
+                                   value="{{ old('tanggal_surat', $suratKeluar->tanggal_surat?->format('Y-m-d')) }}">
                         </div>
 
                         {{-- TUJUAN --}}
@@ -55,8 +60,7 @@
                             <label class="form-label">Tujuan</label>
                             <input type="text" name="tujuan"
                                    class="form-control @error('tujuan') is-invalid @enderror"
-                                   placeholder="Contoh: PT ABC"
-                                   value="{{ old('tujuan') }}">
+                                   value="{{ old('tujuan', $suratKeluar->tujuan) }}">
                         </div>
 
                         {{-- PERIHAL --}}
@@ -64,7 +68,7 @@
                             <label class="form-label">Perihal</label>
                             <input type="text" name="perihal"
                                    class="form-control @error('perihal') is-invalid @enderror"
-                                   value="{{ old('perihal') }}">
+                                   value="{{ old('perihal', $suratKeluar->perihal) }}">
                         </div>
 
                         {{-- ISI --}}
@@ -72,13 +76,23 @@
                             <label class="form-label">Isi Surat</label>
                             <textarea name="isi_surat"
                                       rows="5"
-                                      class="form-control @error('isi_surat') is-invalid @enderror"
-                                      placeholder="Tulis isi surat...">{{ old('isi_surat') }}</textarea>
+                                      class="form-control @error('isi_surat') is-invalid @enderror">{{ old('isi_surat', $suratKeluar->isi_surat) }}</textarea>
                         </div>
 
                         {{-- FILE --}}
                         <div class="col-12">
-                            <label class="form-label">Upload File (PDF)</label>
+                            <label class="form-label">File Surat (PDF)</label>
+
+                            {{-- 🔥 FILE LAMA --}}
+                            @if($suratKeluar->file_url)
+                                <div class="mb-2">
+                                    <a href="{{ $suratKeluar->file_url }}"
+                                       target="_blank"
+                                       class="btn btn-outline-primary w-100 w-md-auto">
+                                        📄 Lihat File Lama
+                                    </a>
+                                </div>
+                            @endif
 
                             <input type="file"
                                    name="file"
@@ -86,15 +100,22 @@
                                    accept="application/pdf">
 
                             <small class="text-muted">
-                                Maksimal 2MB • Format PDF
+                                Kosongkan jika tidak ingin mengganti file
                             </small>
                         </div>
 
                         {{-- BUTTON --}}
-                        <div class="col-12 col-md-4 mt-2">
-                            <button class="btn btn-primary w-100">
-                                <i class="fa fa-save"></i> Simpan
+                        <div class="col-12 mt-2 d-grid d-md-flex gap-2">
+
+                            <button class="btn btn-primary w-100 w-md-auto">
+                                <i class="fa fa-save"></i> Update
                             </button>
+
+                            <a href="{{ route('surat-keluar.index') }}"
+                               class="btn btn-secondary w-100 w-md-auto">
+                                Batal
+                            </a>
+
                         </div>
 
                     </div>

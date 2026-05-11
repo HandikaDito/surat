@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-enum Config
+enum AppConfig
 {
     case DEFAULT_PASSWORD;
     case PAGE_SIZE;

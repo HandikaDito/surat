@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\Disposition;
+use App\Models\DispositionTarget;
 use App\Models\SuratMasuk;
 use App\Models\SuratKeluar;
-use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -14,51 +14,74 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
-        // ================= DISPOSISI =================
+        /*
+        |--------------------------------------------------------------------------
+        | DISPOSISI
+        |--------------------------------------------------------------------------
+        */
+
         if ($user->role_level == 0) {
 
-            $unread = Disposition::count();
-            $aktif  = Disposition::count();
+            // admin lihat semua
+            $unread = DispositionTarget::where('status', 'unread')->count();
+
+            $aktif = DispositionTarget::whereIn('status', [
+                'unread',
+                'on_progress'
+            ])->count();
 
         } else {
 
-            $unread = Disposition::whereHas('targets', function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->where('status', 'unread');
-            })->count();
+            // user biasa hanya miliknya
+            $unread = DispositionTarget::where('user_id', $user->id)
+                ->where('status', 'unread')
+                ->count();
 
-            $aktif = Disposition::whereHas('targets', function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                  ->where('status', 'on_progress');
-            })->count();
+            $aktif = DispositionTarget::where('user_id', $user->id)
+                ->whereIn('status', [
+                    'unread',
+                    'on_progress'
+                ])
+                ->count();
         }
 
-        // ================= STATUS SURAT =================
-        $suratCollection = SuratMasuk::with('dispositions')->get();
+        /*
+        |--------------------------------------------------------------------------
+        | STATISTIK SURAT
+        |--------------------------------------------------------------------------
+        */
 
-        $suratMasuk = $suratCollection->count();
+        // total semua surat masuk
+        $suratMasuk = SuratMasuk::count();
 
-        $suratSelesai = $suratCollection
-            ->filter(fn($s) => $s->status === 'selesai')
-            ->count();
+        // sedang diproses
+        $suratProses = SuratMasuk::where('status', 'diproses')->count();
 
-        $suratProses = $suratCollection
-            ->filter(fn($s) => $s->status === 'diproses')
-            ->count();
+        // selesai
+        $suratSelesai = SuratMasuk::where('status', 'selesai')->count();
 
-        // ================= CHART (FIXED 🔥) =================
+        /*
+        |--------------------------------------------------------------------------
+        | CHART
+        |--------------------------------------------------------------------------
+        */
 
-        // label bulan Indonesia
-        $months = collect(range(1, 12))->map(fn($m) =>
-            \Carbon\Carbon::create()->month($m)->translatedFormat('F')
+        $year = now()->year;
+
+        $months = collect(range(1, 12))->map(
+            fn ($m) =>
+            Carbon::create()->month($m)->translatedFormat('F')
         );
 
-        // 🔥 pakai field yang benar
+        // chart surat masuk
         $chartMasuk = SuratMasuk::selectRaw('MONTH(tanggal_masuk) as bulan, COUNT(*) as total')
+            ->whereYear('tanggal_masuk', $year)
             ->groupBy('bulan')
             ->pluck('total', 'bulan');
 
+        // chart surat keluar
         $chartKeluar = SuratKeluar::selectRaw('MONTH(tanggal_surat) as bulan, COUNT(*) as total')
+            ->whereYear('tanggal_surat', $year)
             ->groupBy('bulan')
             ->pluck('total', 'bulan');
 
@@ -66,19 +89,28 @@ class DashboardController extends Controller
         $dataKeluar = [];
 
         for ($i = 1; $i <= 12; $i++) {
-            $dataMasuk[]  = $chartMasuk[$i] ?? 0;
+            $dataMasuk[] = $chartMasuk[$i] ?? 0;
             $dataKeluar[] = $chartKeluar[$i] ?? 0;
         }
 
-        return view('dashboard.index', [
-            'suratMasuk'   => $suratMasuk,
-            'suratSelesai' => $suratSelesai,
-            'suratProses'  => $suratProses,
+        /*
+        |--------------------------------------------------------------------------
+        | VIEW
+        |--------------------------------------------------------------------------
+        */
 
+        return view('dashboard.index', [
+
+            // statistik surat
+            'suratMasuk'   => $suratMasuk,
+            'suratProses'  => $suratProses,
+            'suratSelesai' => $suratSelesai,
+
+            // disposisi
             'aktif'        => $aktif,
             'unread'       => $unread,
 
-            // 🔥 chart
+            // chart
             'months'       => $months,
             'chartMasuk'   => $dataMasuk,
             'chartKeluar'  => $dataKeluar,

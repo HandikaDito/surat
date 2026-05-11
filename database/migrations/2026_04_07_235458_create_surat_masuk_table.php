@@ -27,6 +27,14 @@ return new class extends Migration {
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
 
             $table->timestamps();
+
+            // 🔥 INDEX
+            $table->index('status');
+            $table->index('tanggal_masuk');
+            $table->index('created_by');
+
+            // 🔥 COMPOSITE (PENTING)
+            $table->index(['status', 'tanggal_masuk']);
         });
     }
 

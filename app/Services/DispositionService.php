@@ -3,90 +3,172 @@
 namespace App\Services;
 
 use App\Models\Disposition;
+use App\Models\DispositionTarget;
+use App\Models\DispositionReport;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class DispositionService
 {
     // ================= STORE =================
     public function store(array $data)
     {
-        return Disposition::create([
-            'surat_id'     => $data['surat_id'],
-            'from_user_id' => auth()->id(),
-            'to_user_id'   => $data['to_user_id'],
-            'status'       => 'unread',
-            'catatan'      => $data['catatan'] ?? null,
-            'deadline'     => $data['deadline'] ?? null
-        ]);
+        return DB::transaction(function () use ($data) {
+
+            $user = auth()->user();
+
+            // 🔒 ambil target
+            $targets = User::whereIn('id', $data['target_users'])->get();
+
+            foreach ($targets as $target) {
+                if (!$user->canSendTo($target)) {
+                    throw new \Exception('Tidak boleh kirim ke user tersebut');
+                }
+            }
+
+            // 🔥 create disposition
+            $disposition = Disposition::create([
+                'surat_id'     => $data['surat_id'],
+                'from_user_id' => $user->id,
+                'catatan'      => $data['catatan'] ?? null,
+                'deadline'     => $data['deadline'] ?? null,
+            ]);
+
+            // 🔥 insert target (multi user)
+            $rows = [];
+            foreach ($targets as $target) {
+                $rows[] = [
+                    'disposition_id' => $disposition->id,
+                    'user_id'        => $target->id,
+                    'status'         => 'unread',
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ];
+            }
+
+            DispositionTarget::insert($rows);
+
+            return $disposition;
+        });
     }
 
     // ================= FORWARD =================
     public function forward(Disposition $disposition, array $data)
     {
-        // 🔒 hanya penerima yang boleh forward
-        if ($disposition->to_user_id !== auth()->id()) {
-            throw new \Exception('Tidak punya akses');
-        }
+        return DB::transaction(function () use ($disposition, $data) {
 
-        // 🔥 ubah status lama (kalau belum selesai)
-        if ($disposition->status !== 'done') {
-            $disposition->update([
-                'status' => 'on_progress'
+            $user = auth()->user();
+
+            // 🔒 pastikan user adalah target aktif
+            $currentTarget = DispositionTarget::where('disposition_id', $disposition->id)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$currentTarget) {
+                throw new \Exception('Tidak punya akses');
+            }
+
+            // 🔒 ambil target baru
+            $targets = User::whereIn('id', $data['target_users'])->get();
+
+            foreach ($targets as $target) {
+                if (!$user->canSendTo($target)) {
+                    throw new \Exception('Target tidak valid');
+                }
+            }
+
+            // 🔥 buat disposisi baru
+            $new = Disposition::create([
+                'surat_id'     => $disposition->surat_id,
+                'from_user_id' => $user->id,
+                'catatan'      => $data['catatan'] ?? null,
+                'deadline'     => $data['deadline'] ?? $disposition->deadline,
             ]);
-        }
 
-        // 🔥 buat disposisi lanjutan (tetap 1 alur)
-        $new = Disposition::create([
-            'surat_id'     => $disposition->surat_id,
-            'from_user_id' => auth()->id(),
-            'to_user_id'   => $data['to_user_id'],
-            'status'       => 'unread',
-            'catatan'      => $data['catatan'] ?? null,
-            'deadline'     => $data['deadline'] ?? $disposition->deadline
-        ]);
+            // 🔥 insert target baru
+            $rows = [];
+            foreach ($targets as $target) {
+                $rows[] = [
+                    'disposition_id' => $new->id,
+                    'user_id'        => $target->id,
+                    'status'         => 'unread',
+                    'created_at'     => now(),
+                    'updated_at'     => now(),
+                ];
+            }
 
-        return $new;
+            DispositionTarget::insert($rows);
+
+            // 🔥 tandai target lama selesai
+            $currentTarget->update([
+                'status' => 'done'
+            ]);
+
+            return $new;
+        });
     }
 
     // ================= DONE =================
-    public function done(Disposition $disposition, array $data, $file = null)
+    public function done(Disposition $disposition, array $data, $file)
     {
-        // 🔒 hanya penerima yang boleh menyelesaikan
-        if ($disposition->to_user_id !== auth()->id()) {
-            throw new \Exception('Tidak punya akses');
-        }
+        return DB::transaction(function () use ($disposition, $data, $file) {
 
-        // 🔥 format laporan
-        $laporan = "[Laporan - " . now()->format('d M Y H:i') . "]\n" . ($data['catatan'] ?? '');
+            $user = auth()->user();
 
-        // 🔥 gabungkan dengan catatan lama (aman dari null)
-        $catatan = $disposition->catatan
-            ? $disposition->catatan . "\n\n" . $laporan
-            : $laporan;
+            // 🔒 pastikan user target
+            $target = DispositionTarget::where('disposition_id', $disposition->id)
+                ->where('user_id', $user->id)
+                ->first();
 
-        $disposition->update([
-            'status'        => 'done',
-            'catatan'       => $catatan,
-            'file_laporan'  => $file
-        ]);
+            if (!$target) {
+                throw new \Exception('Tidak punya akses');
+            }
 
-        return $disposition;
+            // 🔥 update status target
+            $target->update([
+                'status' => 'done'
+            ]);
+
+            // 🔥 simpan laporan
+            DispositionReport::create([
+                'disposition_id' => $disposition->id,
+                'user_id'        => $user->id,
+                'keterangan'     => $data['catatan'] ?? null,
+                'file_path'      => $file,
+                'file_type'      => $this->detectFileType($file),
+            ]);
+
+            return $target;
+        });
     }
 
     // ================= MARK AS READ =================
     public function markAsRead(Disposition $disposition)
     {
-        // 🔒 hanya penerima
-        if ($disposition->to_user_id !== auth()->id()) {
-            return;
-        }
+        $user = auth()->user();
 
-        // 🔥 hanya jika unread
-        if ($disposition->status === 'unread') {
-            $disposition->update([
+        $target = DispositionTarget::where('disposition_id', $disposition->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($target && $target->status === 'unread') {
+            $target->update([
                 'status' => 'on_progress'
             ]);
         }
 
-        return $disposition;
+        return $target;
+    }
+
+    // ================= HELPER =================
+    protected function detectFileType($path)
+    {
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return match (true) {
+            in_array($ext, ['jpg','jpeg','png']) => 'image',
+            in_array($ext, ['mp4','mov']) => 'video',
+            default => 'pdf',
+        };
     }
 }

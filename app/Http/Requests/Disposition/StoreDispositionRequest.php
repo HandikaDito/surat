@@ -9,7 +9,7 @@ class StoreDispositionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->check() && auth()->user()->role_level > 0;
+        return auth()->check() && !auth()->user()->isAdmin();
     }
 
     public function rules(): array
@@ -17,20 +17,29 @@ class StoreDispositionRequest extends FormRequest
         return [
             'surat_id' => 'required|exists:surat_masuk,id',
 
-            'to_user_id' => [
-                'required',
+            // 🔥 MULTI TARGET
+            'target_users' => 'required|array|min:1',
+            'target_users.*' => [
                 'exists:users,id',
                 function ($attr, $value, $fail) {
-                    $user = User::find($value);
-                    if ($user->role_level != auth()->user()->role_level + 1) {
-                        $fail('Hanya boleh kirim ke level berikutnya');
+
+                    $sender = auth()->user();
+                    $target = User::find($value);
+
+                    if (!$target) {
+                        return;
+                    }
+
+                    // 🔥 pakai rule dari model (satu sumber kebenaran)
+                    if (!$sender->canSendTo($target)) {
+                        $fail('Tidak boleh mengirim ke user tersebut');
                     }
                 }
             ],
 
             'catatan' => 'required|string|max:255',
 
-            'deadline' => 'nullable|date',
+            'deadline' => 'nullable|date|after_or_equal:today',
         ];
     }
 }

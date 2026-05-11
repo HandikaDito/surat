@@ -10,14 +10,25 @@ return new class extends Migration {
         Schema::create('dispositions', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('surat_id')->constrained('surat_masuk')->cascadeOnDelete();
+            // 🔥 relasi ke surat
+            $table->foreignId('surat_id')
+                ->constrained('surat_masuk')
+                ->cascadeOnDelete();
 
-            $table->foreignId('from_user_id')->nullable()->constrained('users')->nullOnDelete();
+            // 🔥 pengirim WAJIB ADA
+            $table->foreignId('from_user_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->text('catatan')->nullable();
             $table->date('deadline')->nullable();
 
             $table->timestamps();
+
+            // 🔥 INDEX WAJIB
+            $table->index('surat_id');
+            $table->index('from_user_id');
+            $table->index('created_at');
         });
     }
 

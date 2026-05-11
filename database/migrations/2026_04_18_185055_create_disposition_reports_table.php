@@ -10,15 +10,30 @@ return new class extends Migration {
         Schema::create('disposition_reports', function (Blueprint $table) {
             $table->id();
 
-            $table->foreignId('disposition_id')->constrained('dispositions')->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('disposition_id')
+                ->constrained('dispositions')
+                ->cascadeOnDelete();
+
+            $table->foreignId('user_id')
+                ->constrained('users')
+                ->cascadeOnDelete();
 
             $table->text('keterangan')->nullable();
 
+            // 🔥 WAJIB FILE
             $table->string('file_path');
-            $table->enum('file_type', ['pdf','image','video']);
+
+            // 🔥 tipe file (dikontrol di aplikasi)
+            $table->string('file_type');
 
             $table->timestamps();
+
+            // 🔥 INDEX (WAJIB)
+            $table->index('disposition_id');
+            $table->index('user_id');
+
+            // 🔥 OPTIONAL: cegah double report (aktifkan kalau perlu)
+            // $table->unique(['disposition_id', 'user_id']);
         });
     }
 

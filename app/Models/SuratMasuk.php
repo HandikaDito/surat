@@ -18,7 +18,7 @@ class SuratMasuk extends Model
         'pengirim',
         'perihal',
         'sifat',
-        'file_path',
+        'file_pdf',        // FIX
         'created_by',
         'status',
         'is_disposisi',
@@ -28,8 +28,8 @@ class SuratMasuk extends Model
     protected $casts = [
         'tanggal_surat' => 'date',
         'tanggal_masuk' => 'date',
-        'deadline' => 'date',
-        'is_disposisi' => 'boolean',
+        'deadline'      => 'date',
+        'is_disposisi'  => 'boolean',
     ];
 
     protected $appends = [
@@ -38,7 +38,11 @@ class SuratMasuk extends Model
         'file_url',
     ];
 
-    // ================= RELASI =================
+    /*
+    |--------------------------------------------------------------------------
+    | RELATION
+    |--------------------------------------------------------------------------
+    */
 
     public function creator()
     {
@@ -50,40 +54,51 @@ class SuratMasuk extends Model
         return $this->hasMany(Disposition::class, 'surat_id');
     }
 
-    // ================= STATUS =================
+    /*
+    |--------------------------------------------------------------------------
+    | STATUS
+    |--------------------------------------------------------------------------
+    */
 
     public function getStatusLabelAttribute()
     {
-        return match($this->status) {
-            'baru' => 'Belum Diproses',
+        return match ($this->status) {
+            'baru'     => 'Belum Diproses',
             'diproses' => 'Sedang Diproses',
-            'selesai' => 'Selesai',
-            default => 'Unknown',
+            'selesai'  => 'Selesai',
+            default    => ucfirst($this->status ?? 'baru'),
         };
     }
 
     public function getStatusColorAttribute()
     {
-        return match($this->status) {
-            'baru' => 'secondary',
+        return match ($this->status) {
+            'baru'     => 'secondary',
             'diproses' => 'warning',
-            'selesai' => 'success',
-            default => 'primary',
+            'selesai'  => 'success',
+            default    => 'primary',
         };
     }
 
-    // ================= FILE =================
+    /*
+    |--------------------------------------------------------------------------
+    | FILE
+    |--------------------------------------------------------------------------
+    */
 
     public function getFileUrlAttribute()
     {
-        return $this->file_path
-            ? asset('storage/' . $this->file_path)
+        return $this->file_pdf
+            ? asset('storage/' . $this->file_pdf)
             : null;
     }
 
-    // ================= HELPER =================
+    /*
+    |--------------------------------------------------------------------------
+    | HELPER
+    |--------------------------------------------------------------------------
+    */
 
-    // 🔥 cek apakah semua target sudah selesai
     public function isDone()
     {
         return ! $this->dispositions()
@@ -93,13 +108,28 @@ class SuratMasuk extends Model
             ->exists();
     }
 
-    // 🔥 cek apakah masih proses
     public function isOnProgress()
     {
         return $this->dispositions()
             ->whereHas('targets', function ($q) {
-                $q->whereIn('status', ['unread','on_progress']);
+                $q->whereIn('status', ['unread', 'on_progress']);
             })
             ->exists();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SCOPE
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopeBulan($query, $bulan)
+    {
+        return $query->whereMonth('tanggal_masuk', $bulan);
+    }
+
+    public function scopeTahun($query, $tahun)
+    {
+        return $query->whereYear('tanggal_masuk', $tahun);
     }
 }

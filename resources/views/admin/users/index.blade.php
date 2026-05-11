@@ -1,11 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
+
+<div class="container-fluid">
 
     <div class="card">
 
-        <div class="card-header d-flex justify-content-between">
+        <div class="card-header">
             <span>Manajemen User</span>
         </div>
 
@@ -27,29 +28,29 @@
                 </div>
             @endif
 
-            {{-- FORM TAMBAH --}}
+            {{-- 🔥 FORM (RESPONSIVE FIX) --}}
             <form method="POST" action="{{ route('user.store') }}" class="mb-4">
                 @csrf
 
                 <div class="row g-2">
 
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-3">
                         <input name="name" class="form-control" placeholder="Nama" required>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-3">
                         <input name="email" class="form-control" placeholder="Email" required>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-3">
                         <input type="password" name="password" class="form-control" placeholder="Password" required>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-3">
                         <input name="jabatan" class="form-control" placeholder="Jabatan">
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-3">
                         <select name="role_level" class="form-control" required>
                             <option value="">Role</option>
                             <option value="0">Admin</option>
@@ -61,7 +62,7 @@
                         </select>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="col-12 col-md-3">
                         <button class="btn btn-primary w-100">
                             <i class="fa fa-plus"></i> Tambah
                         </button>
@@ -70,7 +71,7 @@
                 </div>
             </form>
 
-            {{-- TABLE --}}
+            {{-- 🔥 TABLE --}}
             <div class="table-responsive">
                 <table class="table table-bordered">
                     <thead>
@@ -86,8 +87,9 @@
                     <tbody>
                         @forelse($users as $u)
                         <tr>
-                            <td>{{ $u->name }}</td>
-                            <td>{{ $u->email }}</td>
+
+                            <td class="word-break">{{ $u->name }}</td>
+                            <td class="word-break">{{ $u->email }}</td>
 
                             <td>
                                 <span class="badge bg-primary">
@@ -101,28 +103,34 @@
                                 </span>
                             </td>
 
-                            <td>
-                                <button class="btn btn-warning btn-sm"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#edit{{ $u->id }}">
-                                    Edit
-                                </button>
+                            <td class="text-nowrap">
 
-                                <form action="{{ route('user.destroy', $u->id) }}"
-                                      method="POST"
-                                      style="display:inline;">
-                                    @csrf
-                                    @method('DELETE')
+                                <div class="d-flex flex-wrap gap-1">
 
-                                    <button class="btn btn-danger btn-sm"
-                                            onclick="return confirm('Hapus user?')">
-                                        Hapus
+                                    <button class="btn btn-warning btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#edit{{ $u->id }}">
+                                        Edit
                                     </button>
-                                </form>
+
+                                    <form action="{{ route('user.destroy', $u->id) }}"
+                                          method="POST">
+                                        @csrf
+                                        @method('DELETE')
+
+                                        <button class="btn btn-danger btn-sm"
+                                                onclick="return confirm('Hapus user?')">
+                                            Hapus
+                                        </button>
+                                    </form>
+
+                                </div>
+
                             </td>
+
                         </tr>
 
-                        {{-- MODAL EDIT --}}
+                        {{-- MODAL --}}
                         <div class="modal fade" id="edit{{ $u->id }}">
                             <div class="modal-dialog">
                                 <form method="POST" action="{{ route('user.update', $u->id) }}">
@@ -138,23 +146,15 @@
 
                                         <div class="modal-body">
 
-                                            <input name="name"
-                                                   value="{{ $u->name }}"
-                                                   class="form-control mb-2"
-                                                   required>
+                                            <input name="name" value="{{ $u->name }}" class="form-control mb-2" required>
 
-                                            <input name="email"
-                                                   value="{{ $u->email }}"
-                                                   class="form-control mb-2"
-                                                   required>
+                                            <input name="email" value="{{ $u->email }}" class="form-control mb-2" required>
 
-                                            <input type="password"
-                                                   name="password"
+                                            <input type="password" name="password"
                                                    class="form-control mb-2"
                                                    placeholder="Password baru (opsional)">
 
-                                            <input name="jabatan"
-                                                   value="{{ $u->jabatan }}"
+                                            <input name="jabatan" value="{{ $u->jabatan }}"
                                                    class="form-control mb-2"
                                                    placeholder="Jabatan">
 
@@ -170,7 +170,7 @@
                                         </div>
 
                                         <div class="modal-footer">
-                                            <button class="btn btn-primary">Update</button>
+                                            <button class="btn btn-primary w-100">Update</button>
                                         </div>
 
                                     </div>
@@ -195,4 +195,5 @@
     </div>
 
 </div>
+
 @endsection

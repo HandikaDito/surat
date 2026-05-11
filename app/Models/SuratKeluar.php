@@ -22,16 +22,20 @@ class SuratKeluar extends Model
     protected $fillable = [
         'nomor_surat',
         'tanggal_surat',
-        'tujuan',        // 🔥 FIX WAJIB
+        'tujuan',
         'perihal',
         'isi_surat',
+        'file_path',     // 🔥 NEW
         'status',
         'created_by',
+        'approved_by',   // 🔥 NEW
+        'approved_at',   // 🔥 NEW
     ];
 
     // ================= CAST =================
     protected $casts = [
         'tanggal_surat' => 'date',
+        'approved_at'   => 'datetime', // 🔥 NEW
         'created_at'    => 'datetime',
         'updated_at'    => 'datetime',
     ];
@@ -45,15 +49,24 @@ class SuratKeluar extends Model
     protected $appends = [
         'status_label',
         'status_color',
+        'file_url', // 🔥 NEW
     ];
 
     // ================= RELASI =================
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    // 🔥 NEW
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     // ================= SCOPE =================
+
     public function scopeByUser($query, $userId)
     {
         return $query->where('created_by', $userId);
@@ -80,6 +93,7 @@ class SuratKeluar extends Model
     }
 
     // ================= ACCESSOR =================
+
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
@@ -102,7 +116,16 @@ class SuratKeluar extends Model
         };
     }
 
+    // 🔥 FILE ACCESSOR
+    public function getFileUrlAttribute()
+    {
+        return $this->file_path
+            ? asset('storage/' . $this->file_path)
+            : null;
+    }
+
     // ================= HELPER =================
+
     public function isDraft()
     {
         return $this->status === self::STATUS_DRAFT;

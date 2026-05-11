@@ -18,6 +18,10 @@ class Disposition extends Model
         'deadline',
     ];
 
+    protected $appends = [
+        'statuses',
+    ];
+
     // ================= RELASI =================
 
     public function surat()
@@ -30,13 +34,11 @@ class Disposition extends Model
         return $this->belongsTo(User::class, 'from_user_id');
     }
 
-    // 🔥 MULTI TARGET (inti sistem)
     public function targets()
     {
         return $this->hasMany(DispositionTarget::class, 'disposition_id');
     }
 
-    // 🔥 shortcut ke user
     public function targetUsers()
     {
         return $this->belongsToMany(
@@ -47,7 +49,6 @@ class Disposition extends Model
         )->withPivot('status')->withTimestamps();
     }
 
-    // 📎 laporan
     public function reports()
     {
         return $this->hasMany(DispositionReport::class, 'disposition_id');
@@ -55,30 +56,48 @@ class Disposition extends Model
 
     // ================= HELPER =================
 
-    // 🔥 semua status target
     public function getStatusesAttribute()
     {
-        return $this->targets->pluck('status');
+        if ($this->relationLoaded('targets')) {
+            return $this->targets->pluck('status');
+        }
+
+        return $this->targets()->pluck('status');
     }
 
-    // 🔥 cek semua selesai
     public function isDone()
     {
-        return $this->targets->every(fn ($t) => $t->status === 'done');
+        if ($this->relationLoaded('targets')) {
+            return $this->targets->every(fn ($t) => $t->status === 'done');
+        }
+
+        return ! $this->targets()
+            ->where('status', '!=', 'done')
+            ->exists();
     }
 
-    // 🔥 ada yang belum dibaca
     public function hasUnread()
     {
-        return $this->targets->contains(fn ($t) => $t->status === 'unread');
+        if ($this->relationLoaded('targets')) {
+            return $this->targets->contains(fn ($t) => $t->status === 'unread');
+        }
+
+        return $this->targets()
+            ->where('status', 'unread')
+            ->exists();
     }
 
-    // 🔥 sedang berjalan
     public function isOnProgress()
     {
-        return $this->targets->contains(fn ($t) => 
-            in_array($t->status, ['unread','on_progress'])
-        );
+        if ($this->relationLoaded('targets')) {
+            return $this->targets->contains(fn ($t) =>
+                in_array($t->status, ['unread','on_progress'])
+            );
+        }
+
+        return $this->targets()
+            ->whereIn('status', ['unread','on_progress'])
+            ->exists();
     }
 
     // ================= SCOPE =================
@@ -91,5 +110,11 @@ class Disposition extends Model
     public function scopeOrdered($query)
     {
         return $query->orderBy('created_at');
+    }
+
+    // 🔥 BONUS: eager load default (opsional)
+    public function scopeWithRelations($query)
+    {
+        return $query->with(['fromUser', 'targets.user']);
     }
 }

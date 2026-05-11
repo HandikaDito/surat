@@ -1,10 +1,16 @@
-<aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+<aside id="layout-menu"
+       class="layout-menu menu-vertical menu bg-menu-theme">
 
     {{-- LOGO --}}
-    <div class="app-brand demo">
+    <div class="app-brand demo d-flex justify-content-between align-items-center px-3">
         <a href="{{ url('/') }}" class="app-brand-link">
             <span class="app-brand-text demo menu-text fw-bold">E-Disposisi</span>
         </a>
+
+        {{-- ❌ tombol close (HP only) --}}
+        <button class="btn btn-sm d-lg-none" onclick="toggleSidebar()">
+            <i class="fa fa-times"></i>
+        </button>
     </div>
 
     <div class="menu-inner-shadow"></div>
@@ -43,7 +49,7 @@
             </a>
         </li>
 
-        {{-- ADMIN ONLY --}}
+        {{-- ADMIN --}}
         @if(auth()->user()->role_level == 0)
 
             <li class="menu-header small text-uppercase">
@@ -68,3 +74,6 @@
 
     </ul>
 </aside>
+
+{{-- 🔥 OVERLAY --}}
+<div id="sidebar-overlay" class="d-none"></div>

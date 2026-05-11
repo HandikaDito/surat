@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 
 class RoleMiddleware
 {
-    public function handle(Request $request, Closure $next, ...$levels)
+    public function handle(Request $request, Closure $next, ...$roles)
     {
         $user = auth()->user();
 
@@ -15,9 +15,12 @@ class RoleMiddleware
             abort(403);
         }
 
-        // 🔥 langsung cek role_level
-        if (!in_array($user->role_level, $levels)) {
-            abort(403, 'Akses ditolak');
+        // 🔥 FIX UTAMA: convert semua role ke integer
+        $roles = array_map('intval', $roles);
+
+        // 🔥 gunakan strict check
+        if (!in_array($user->role_level, $roles, true)) {
+            abort(403, 'Tidak punya akses');
         }
 
         return $next($request);

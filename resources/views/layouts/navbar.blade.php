@@ -1,33 +1,39 @@
-<nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme">
+<nav class="layout-navbar container-fluid navbar navbar-expand-lg navbar-detached align-items-center bg-navbar-theme px-2 px-md-3">
 
-    <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 d-xl-none">
-        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
+    {{-- ☰ TOGGLE --}}
+    <div class="layout-menu-toggle navbar-nav align-items-center me-2 d-lg-none">
+        <a class="nav-item nav-link px-0" href="javascript:void(0)">
             <i class="fa fa-bars"></i>
         </a>
     </div>
 
+    {{-- RIGHT SIDE --}}
     <div class="navbar-nav-right d-flex align-items-center w-100 justify-content-end">
 
-        {{-- 🔔 NOTIFICATION --}}
-        <ul class="navbar-nav flex-row align-items-center ms-auto">
+        <ul class="navbar-nav flex-row align-items-center ms-auto gap-2">
 
-            <li class="nav-item dropdown me-3">
-                <a class="nav-link dropdown-toggle hide-arrow"
+            {{-- 🔔 NOTIFICATION --}}
+            <li class="nav-item dropdown">
+                <a class="nav-link position-relative"
                    href="javascript:void(0);"
                    data-bs-toggle="dropdown"
                    onclick="markAsRead()">
 
-                    <i class="fa fa-bell fa-lg"></i>
+                    <i class="fa fa-bell"></i>
 
+                    {{-- BADGE --}}
                     <span id="notif-count"
-                          class="badge bg-danger position-absolute top-0 start-100 translate-middle">
+                          class="badge bg-danger position-absolute top-0 start-100 translate-middle p-1"
+                          style="font-size:10px;">
                         0
                     </span>
                 </a>
 
-                <ul class="dropdown-menu dropdown-menu-end"
+                {{-- 🔥 DROPDOWN FIX MOBILE --}}
+                <ul class="dropdown-menu dropdown-menu-end p-0"
                     id="notif-list"
-                    style="min-width:300px;">
+                    style="width:90vw; max-width:320px;">
+
                     <li class="dropdown-item text-center text-muted">
                         Loading...
                     </li>
@@ -36,14 +42,15 @@
 
             {{-- 👤 USER --}}
             <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow d-flex align-items-center"
+                <a class="nav-link dropdown-toggle d-flex align-items-center"
                    href="javascript:void(0);"
                    data-bs-toggle="dropdown">
 
-                    <i class="fa fa-user-circle fa-lg me-2"></i>
+                    <i class="fa fa-user-circle"></i>
 
-                    <div class="text-start">
-                        <div style="font-size:14px;">
+                    {{-- 🔥 TEXT HIDE DI HP --}}
+                    <div class="ms-2 d-none d-md-block text-start">
+                        <div style="font-size:13px;">
                             {{ auth()->user()->name }}
                         </div>
                         <small class="text-muted">

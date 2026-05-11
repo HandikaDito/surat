@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Hash;
 
 class ProfileController extends Controller
 {
+    public function index()
+    {
+        return view('profile.index');
+    }
+
     public function update(Request $request)
     {
         $user = auth()->user();

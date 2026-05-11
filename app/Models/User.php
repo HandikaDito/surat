@@ -80,18 +80,28 @@ class User extends Authenticatable
 
     public function canSendTo(self $target)
     {
-        // 🚫 Admin tidak boleh disposisi
+        // 🚫 tidak boleh ke diri sendiri
+        if ($this->id === $target->id) {
+            return false;
+        }
+
+        // 🚫 admin tidak boleh disposisi
         if ($this->isAdmin()) {
             return false;
         }
 
-        // 🚫 Staff tidak boleh kirim ke atas
-        if ($this->isStaff() && $target->role_level < 5) {
+        // 🚫 target tidak aktif
+        if (!$target->is_active) {
             return false;
         }
 
-        // ✅ hanya boleh ke level sama atau lebih bawah
-        return $target->role_level >= $this->role_level;
+        // 🚫 tidak boleh kirim ke atasan (level lebih kecil)
+        if ($target->role_level < $this->role_level) {
+            return false;
+        }
+
+        // ✅ boleh ke level sama atau lebih bawah
+        return true;
     }
 
     // ================= ACCESSOR =================
@@ -117,13 +127,13 @@ class User extends Authenticatable
         return $this->hasMany(SuratMasuk::class, 'created_by');
     }
 
-    // 📤 surat keluar (opsional)
+    // 📤 surat keluar
     public function suratKeluar()
     {
         return $this->hasMany(SuratKeluar::class, 'created_by');
     }
 
-    // 🔽 target disposisi (pivot)
+    // 🔽 target disposisi
     public function dispositionTargets()
     {
         return $this->hasMany(DispositionTarget::class, 'user_id');
@@ -154,13 +164,11 @@ class User extends Authenticatable
 
     // ================= HIERARCHY =================
 
-    // 🔼 atasan
     public function parent()
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
 
-    // 🔽 bawahan
     public function children()
     {
         return $this->hasMany(self::class, 'parent_id');

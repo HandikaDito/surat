@@ -65,8 +65,13 @@ Route::middleware(['auth'])->group(function () {
     | NOTIFICATION
     |--------------------------------------------------------------------------
     */
-    Route::get('/notif', [NotificationController::class, 'index'])->name('notif.get');
-    Route::post('/notif/read', [NotificationController::class, 'read'])->name('notif.read');
+    Route::prefix('notif')->name('notif.')->group(function () {
+
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+
+        Route::post('/read', [NotificationController::class, 'read'])->name('read');
+
+    });
 
 
     /*
@@ -74,14 +79,20 @@ Route::middleware(['auth'])->group(function () {
     | USER MANAGEMENT (ADMIN ONLY)
     |--------------------------------------------------------------------------
     */
-    Route::prefix('user')->name('user.')->middleware('role:0')->group(function () {
+    Route::prefix('user')
+        ->name('user.')
+        ->middleware('role:0')
+        ->group(function () {
 
-        Route::get('/', [UserController::class, 'index'])->name('index');
-        Route::post('/', [UserController::class, 'store'])->name('store');
-        Route::put('/{user}', [UserController::class, 'update'])->name('update');
-        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+            Route::get('/', [UserController::class, 'index'])->name('index');
 
-    });
+            Route::post('/', [UserController::class, 'store'])->name('store');
+
+            Route::put('/{user}', [UserController::class, 'update'])->name('update');
+
+            Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+
+        });
 
 
     /*
@@ -92,9 +103,13 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('surat-masuk')->name('surat-masuk.')->group(function () {
 
         Route::get('/', [SuratMasukController::class, 'index'])->name('index');
+
         Route::get('/create', [SuratMasukController::class, 'create'])->name('create');
+
         Route::post('/', [SuratMasukController::class, 'store'])->name('store');
+
         Route::get('/{suratMasuk}', [SuratMasukController::class, 'show'])->name('show');
+
         Route::delete('/{suratMasuk}', [SuratMasukController::class, 'destroy'])->name('destroy');
 
     });
@@ -109,9 +124,17 @@ Route::middleware(['auth'])->group(function () {
 
         // CRUD
         Route::get('/', [SuratKeluarController::class, 'index'])->name('index');
+
         Route::get('/create', [SuratKeluarController::class, 'create'])->name('create');
+
         Route::post('/', [SuratKeluarController::class, 'store'])->name('store');
+
+        Route::get('/{suratKeluar}/edit', [SuratKeluarController::class, 'edit'])->name('edit');
+
+        Route::put('/{suratKeluar}', [SuratKeluarController::class, 'update'])->name('update');
+
         Route::get('/{suratKeluar}', [SuratKeluarController::class, 'show'])->name('show');
+
         Route::delete('/{suratKeluar}', [SuratKeluarController::class, 'destroy'])->name('destroy');
 
         // WORKFLOW
@@ -131,27 +154,25 @@ Route::middleware(['auth'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | DISPOSISI (FINAL)
+    | DISPOSISI
     |--------------------------------------------------------------------------
     */
     Route::prefix('disposisi')->name('disposition.')->group(function () {
 
-        // list
-        Route::get('/', [DispositionController::class, 'index'])->name('index');
+        Route::get('/', [DispositionController::class, 'index'])
+            ->name('index');
 
-        // create
-        Route::post('/', [DispositionController::class, 'store'])->name('store');
+        Route::post('/', [DispositionController::class, 'store'])
+            ->name('store');
 
-        // forward
         Route::post('/{disposition}/forward', [DispositionController::class, 'forward'])
             ->name('forward');
 
-        // done + laporan
         Route::post('/{disposition}/done', [DispositionController::class, 'done'])
             ->name('done');
 
-        // 🔥 tracking (gunakan surat_id dari disposition)
-        Route::get('/{disposition}/tracking', [TrackingController::class, 'show'])
+        // TRACKING PER SURAT
+        Route::get('/surat/{surat}/tracking', [TrackingController::class, 'show'])
             ->name('tracking');
 
     });
@@ -164,9 +185,7 @@ Route::middleware(['auth'])->group(function () {
     */
     Route::prefix('profile')->name('profile.')->group(function () {
 
-        Route::get('/', function () {
-            return view('profile.index');
-        })->name('index');
+        Route::get('/', [ProfileController::class, 'index'])->name('index');
 
         Route::put('/', [ProfileController::class, 'update'])->name('update');
 
@@ -181,9 +200,14 @@ Route::middleware(['auth'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'role:0'])->group(function () {
+Route::prefix('admin')
+    ->middleware(['auth', 'role:0'])
+    ->group(function () {
 
-    Route::get('/settings', [ConfigController::class, 'index'])->name('settings.index');
-    Route::put('/settings', [ConfigController::class, 'update'])->name('settings.update');
+        Route::get('/settings', [ConfigController::class, 'index'])
+            ->name('settings.index');
 
-});
+        Route::put('/settings', [ConfigController::class, 'update'])
+            ->name('settings.update');
+
+    });

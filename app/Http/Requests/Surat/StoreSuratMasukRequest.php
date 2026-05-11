@@ -20,7 +20,9 @@ class StoreSuratMasukRequest extends FormRequest
             'pengirim'      => 'required|string|max:255',
             'perihal'       => 'required|string|max:255',
             'sifat'         => 'nullable|string|max:100',
-            'file_pdf'      => 'nullable|mimes:pdf|max:2048',
+
+            // 🔥 FIX
+            'file' => 'nullable|file|mimes:pdf|max:2048',
         ];
     }
 }
